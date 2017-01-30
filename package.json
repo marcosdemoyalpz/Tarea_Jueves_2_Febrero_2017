@@ -4,6 +4,7 @@
         "consolidate": "^0.14.5",
         "express": "^4.14.0",
         "express-handlebars": "^3.0.0",
+        "http-request-builder": "^1.2.0",
         "serve-favicon": "^2.3.2"
     },
     "name": "Tarea-1-23-2017",
