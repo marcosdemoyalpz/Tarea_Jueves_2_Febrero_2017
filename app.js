@@ -2,12 +2,19 @@ var express = require('express');
 var bodyParser = require("body-parser");
 var app = express();
 
+//Load Database modules
+var sqlite3 = require('sqlite3').verbose();
+var db = new sqlite3.Database('./db/mydb.db');
+
+// Universally unique identifier modules
+var uuid = require('node-uuid');
+
 //NPM Module to integrate Handlerbars UI template engine with Express
-var exphbs  = require('express-handlebars');
+var exphbs = require('express-handlebars');
 
 //Declaring Express to use Handlerbars template engine with main.handlebars as
 //the default layout
-app.engine('handlebars', exphbs({defaultLayout: 'main'}));
+app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
 //Defining middleware to serve static files
@@ -35,8 +42,27 @@ app.put('*', function(req, res) {
     }
 });
 
-app.get("/movies/create", function(req, res){
-  res.render("create")
+app.get("/movies/list", function(req, res) {
+    db.serialize(function() {
+        db.all("SELECT * FROM movies", function(err, rows) {
+            // rows.forEach(function(element) {
+            //     element.keywords = element.keywords.split(',');
+            // }, this);
+            res.render('list', {
+                title: "Movies App",
+                layoutTitle: "My Movies",
+                movies: rows
+            });
+        });
+    })
+    db.close();
+});
+
+app.get("/movies/create", function(req, res) {
+    res.render('create', {
+        title: "Movies App",
+        layoutTitle: "Create a Movie"
+    });
 });
 
 app.get('*', function(req, res) {
@@ -76,6 +102,22 @@ app.get('*', function(req, res) {
     }
 });
 
+app.post("/movies/create", function(req, res) {
+    db.run('INSERT into movies(id,name,description) VALUES(' +
+        '"' + uuid.v4() +
+        '",' + '"' + req.body.name +
+        '",' + '"' + req.body.description +
+        '")');
+    // res.render('list');
+    db.serialize(function() {
+        db.all("SELECT * FROM movies", function(err, rows) {
+            res.send(rows);
+            console.log(rows);
+        });
+    });
+    db.close();
+});
+
 app.post('*', function(req, res) {
 
     var login = false;
@@ -88,16 +130,7 @@ app.post('*', function(req, res) {
         res.sendStatus(500);
     } else if (req.path.includes('/notimplemented')) {
         res.sendStatus(200);
-    } else if (req.path.includes('/movies/create')) {
-        var jsonObj = {
-            "name": req.body.Name,
-            "description": req.body.Description
-        }
-        res.set({
-            'Content-Type': 'application/json'
-        })
-        res.send(jsonObj);
-    }else if (req.path.includes('/login')) {
+    } else if (req.path.includes('/login')) {
         login = true;
     }
     if (login) {
