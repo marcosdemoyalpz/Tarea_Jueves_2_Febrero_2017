@@ -2,10 +2,7 @@ var express = require('express');
 var bodyParser = require("body-parser");
 var multer = require('multer')
 var mkdirp = require('mkdirp');
-
 var app = express();
-var http = require('http');
-var fs = require('fs');
 var redis = require('redis');
 var yaml = require('node-yaml-config');
 var redisYaml = yaml.load('./redis.yml');
@@ -22,13 +19,16 @@ var db = new sqlite3.Database('./db/mydb.db');
 
 // Universally unique identifier modules
 var uuid = require('node-uuid');
+var uniqueID = uuid.v4();
 
 // NPM Module to integrate Handlerbars UI template engine with Express
 var exphbs = require('express-handlebars');
 
 //Declaring Express to use Handlerbars template engine with main.handlebars as
 //the default layout
-app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
+app.engine('handlebars', exphbs({
+    defaultLayout: 'main'
+}));
 app.set('view engine', 'handlebars');
 
 //Defining middleware to serve static files
@@ -43,7 +43,7 @@ var storageImage = multer.diskStorage({
         });
     },
     filename: function(req, file, cb) {
-        var varFile = Date.now() + '_';
+        var varFile = uniqueID + '_';
         newFilePath = "/originals/" + varFile + file.originalname;
         cb(null, varFile + file.originalname);
     }
@@ -56,7 +56,9 @@ var upload = multer({
 
 app.set('json spaces', 2);
 
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
 app.use(bodyParser.json());
 
 app.patch('*', function(req, res) {
@@ -185,7 +187,6 @@ app.post('/movies/create', upload.single('image'), function(req, res, next) {
         keywords: "",
         image: ""
     }
-    console.log(JSON.stringify(req.body.image));
     if (req.body.name == "" || req.body.name == undefined) {
         invalidJsonResponse.invalidName = true;
     } else {
@@ -213,11 +214,14 @@ app.post('/movies/create', upload.single('image'), function(req, res, next) {
         return;
     }
     db.serialize(function() {
-        var uniqueID = uuid.v4();
         var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, movie_poster) values (?,?,?,?,?)");
         statement.run(uniqueID, req.body.name, req.body.description, req.body.keywords, newFilePath);
         console.log(newFilePath);
         statement.finalize();
+        redisClient.set("marcos:FileUploaded", newFilePath);
+        console.log("Current UUID = " + uniqueID);
+        uniqueID = uuid.v4();
+        console.log("New UUID = " + uniqueID);
     });
     res.redirect('/movies');
 });
