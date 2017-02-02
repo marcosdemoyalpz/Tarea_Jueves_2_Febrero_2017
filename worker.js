@@ -5,14 +5,17 @@ var redis = require('redis');
 var yaml = require('node-yaml-config');
 var redisYaml = yaml.load('./redis.yml');
 var tinifyYaml = yaml.load('./tinify.yml');
+var sqlite3Yaml = yaml.load('./SQLite3.yml');
 var tinify = require('tinify');
 var sharp = require('sharp');
 var redisClient = redis.createClient(redisYaml.port, redisYaml.host);
 var redisSubsClient = redis.createClient(redisYaml.port, redisYaml.host);
+redisClient.auth(redisYaml.authKey);
+redisSubsClient.auth(redisYaml.authKey);
 
 //Load Database modules
 var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('./db/mydb.db');
+var db = new sqlite3.Database(sqlite3Yaml.path);
 
 // Universally unique identifier modules
 var uuid = require('node-uuid');
