@@ -1,6 +1,19 @@
 var express = require('express');
 var bodyParser = require("body-parser");
+var multer = require('multer')
+var mkdirp = require('mkdirp');
+
 var app = express();
+var http = require('http');
+var fs = require('fs');
+var redis = require('redis');
+var yaml = require('node-yaml-config');
+var redisYaml = yaml.load('./redis.yml');
+var redisClient = redis.createClient(redisYaml.port, redisYaml.host);
+
+redisClient.on('connect', function() {
+    console.log('Redis connected');
+});
 
 //Load Database modules
 var sqlite3 = require('sqlite3').verbose();
@@ -9,7 +22,7 @@ var db = new sqlite3.Database('./db/mydb.db');
 // Universally unique identifier modules
 var uuid = require('node-uuid');
 
-//NPM Module to integrate Handlerbars UI template engine with Express
+// NPM Module to integrate Handlerbars UI template engine with Express
 var exphbs = require('express-handlebars');
 
 //Declaring Express to use Handlerbars template engine with main.handlebars as
@@ -18,7 +31,27 @@ app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
 //Defining middleware to serve static files
-app.use('/static', express.static('public'));
+app.use(express.static('public'));
+app.use(express.static('generated'));
+
+var storageImage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        var newDestination = '/generated/originals/';
+        mkdirp(__dirname + newDestination, function(err) {
+            cb(null, __dirname + newDestination);
+        });
+    },
+    filename: function(req, file, cb) {
+        var varFile = Date.now() + '_';
+        newFilePath = "/originals/" + varFile + file.originalname;
+        cb(null, varFile + file.originalname);
+    }
+});
+
+var upload = multer({
+    dest: '/uploads/',
+    storage: storageImage,
+});
 
 app.set('json spaces', 2);
 
@@ -42,12 +75,25 @@ app.put('*', function(req, res) {
     }
 });
 
-app.get("/movies/list", function(req, res) {
+app.get("/movies", function(req, res) {
+    res.redirect('/movies/list');
+});
+
+app.get('/movies/json', function(req, res) {
     db.serialize(function() {
         db.all("SELECT * FROM movies", function(err, rows) {
-            // rows.forEach(function(element) {
-            //     element.keywords = element.keywords.split(',');
-            // }, this);
+            rows.forEach(function(element) {
+                element.keywords = element.keywords.split(',');
+            }, this);
+            res.send(rows);
+        });
+    })
+});
+
+app.get("/movies/list", function(req, res) {
+    var imageArray = [];
+    db.serialize(function() {
+        db.all("SELECT * FROM movies", function(err, rows) {
             res.render('list', {
                 title: "Movies App",
                 layoutTitle: "My Movies",
@@ -55,13 +101,36 @@ app.get("/movies/list", function(req, res) {
             });
         });
     })
-    db.close();
+});
+
+app.get('/movies/list/json', function(req, res) {
+    db.serialize(function() {
+        db.all("SELECT * FROM movies", function(err, rows) {
+            rows.forEach(function(element) {
+                element.keywords = element.keywords.split(',');
+            }, this);
+            res.send(rows);
+        });
+    })
+});
+
+app.get('/movies/details/:id', function(req, res) {
+    db.serialize(function() {
+        db.get("SELECT * FROM movies where id = (?)", req.params.id, function(err, row) {
+            if (row) {
+                row.keywords = row.keywords.split(',');
+                row.title = 'Movies App';
+                row.layoutTitle = 'My Movies';
+            }
+            res.render('details', row);
+        });
+    });
 });
 
 app.get("/movies/create", function(req, res) {
     res.render('create', {
         title: "Movies App",
-        layoutTitle: "Create a Movie"
+        layoutTitle: "Create a movie"
     });
 });
 
@@ -102,21 +171,70 @@ app.get('*', function(req, res) {
     }
 });
 
-app.post("/movies/create", function(req, res) {
-    db.run('INSERT into movies(id,name,description) VALUES(' +
-        '"' + uuid.v4() +
-        '",' + '"' + req.body.name +
-        '",' + '"' + req.body.description +
-        '")');
-    // res.render('list');
+app.post('/movies/create', upload.single('image'), function(req, res, next) {
+    var invalidJsonResponse = {
+        title: "Movies App",
+        layoutTitle: "Create a Movie",
+        invalidName: false,
+        invalidDescription: false,
+        invalidKeywords: false,
+        invalidImage: false,
+        name: "",
+        description: "",
+        keywords: "",
+        image: ""
+    }
+    console.log(JSON.stringify(req.body.image));
+    if (req.body.name == "" || req.body.name == undefined) {
+        invalidJsonResponse.invalidName = true;
+    } else {
+        invalidJsonResponse.name = req.body.name;
+    }
+    if (req.body.description == "" || req.body.description == undefined) {
+        invalidJsonResponse.invalidDescription = true;
+    } else {
+        invalidJsonResponse.description = req.body.description;
+    }
+    if (req.body.keywords == "" || req.body.keywords == undefined) {
+        invalidJsonResponse.invalidKeywords = true;
+    } else {
+        invalidJsonResponse.keywords = req.body.keywords;
+    }
+    if (!req.file) {
+        invalidJsonResponse.invalidImage = true;
+    }
+    if (invalidJsonResponse.invalidName ||
+        invalidJsonResponse.invalidDescription ||
+        invalidJsonResponse.invalidKeywords ||
+        invalidJsonResponse.invalidImage
+    ) {
+        res.render('create', invalidJsonResponse);
+        return;
+    }
     db.serialize(function() {
-        db.all("SELECT * FROM movies", function(err, rows) {
-            res.send(rows);
-            console.log(rows);
-        });
+        var uniqueID = uuid.v4();
+        var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, movie_poster) values (?,?,?,?,?)");
+        statement.run(uniqueID, req.body.name, req.body.description, req.body.keywords, newFilePath);
+        console.log(newFilePath);
+        statement.finalize();
     });
-    db.close();
+    res.redirect('/movies');
 });
+
+// app.post("/movies/create", function(req, res) {
+//     db.run('INSERT into movies(id,name,description) VALUES(' +
+//         '"' + uuid.v4() +
+//         '",' + '"' + req.body.name +
+//         '",' + '"' + req.body.description +
+//         '")');
+//     // res.render('list');
+//     db.serialize(function() {
+//         db.all("SELECT * FROM movies", function(err, rows) {
+//             res.send(rows);
+//             console.log(rows);
+//         });
+//     });
+// });
 
 app.post('*', function(req, res) {
 

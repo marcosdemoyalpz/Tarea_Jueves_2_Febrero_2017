@@ -1,5 +1,20 @@
 <div class="col-md-12">
-    {{#each movies}}
-        {{> movie_rows}}
-    {{/each}}
+    <div style="margin-bottom: 15px" class="row">
+        {{#each movies}}
+            <a href="/movies/details/{{id}}">
+                <div class="col-lg-4 centered">
+                    <div class="img-responsive">
+                    {{#if movie_thumbnail_large}}
+                        <img src="{{movie_thumbnail_large}}" class="img-responsive" width="300">
+                    {{else}}
+                        <img src="{{movie_poster}}" class="img-responsive" width="300">
+                    {{/if}}                
+                    </div>
+                    <div class="caption">
+                        <h3>{{name}}</h3>
+                    </div>
+                </div>                
+            </a>
+        {{/each}}
+    </div>
 </div>
