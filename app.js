@@ -10,6 +10,7 @@ var redis = require('redis');
 var yaml = require('node-yaml-config');
 var redisYaml = yaml.load('./redis.yml');
 var redisClient = redis.createClient(redisYaml.port, redisYaml.host);
+redisClient.auth(redisYaml.authKey);
 
 redisClient.on('connect', function() {
     console.log('Redis connected');
