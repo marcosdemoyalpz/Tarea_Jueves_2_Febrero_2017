@@ -227,25 +227,14 @@ app.post('/movies/create', upload.single('image'), function(req, res, next) {
     res.redirect('/movies');
 });
 
-// app.post("/movies/create", function(req, res) {
-//     db.run('INSERT into movies(id,name,description) VALUES(' +
-//         '"' + uuid.v4() +
-//         '",' + '"' + req.body.name +
-//         '",' + '"' + req.body.description +
-//         '")');
-//     // res.render('list');
-//     db.serialize(function() {
-//         db.all("SELECT * FROM movies", function(err, rows) {
-//             res.send(rows);
-//             console.log(rows);
-//         });
-//     });
-// });
+app.post('/login', function(req, res) {
+    res.set({
+        'Content-Type': 'application/json'
+    })
+    res.send(req.body);
+});
 
 app.post('*', function(req, res) {
-
-    var login = false;
-
     if (req.path.includes('/protected')) {
         res.sendStatus(401);
     } else if (req.path.includes('/404')) {
@@ -254,22 +243,6 @@ app.post('*', function(req, res) {
         res.sendStatus(500);
     } else if (req.path.includes('/notimplemented')) {
         res.sendStatus(200);
-    } else if (req.path.includes('/login')) {
-        login = true;
-    }
-    if (login) {
-
-        var user = req.body.user;
-        var pass = req.body.pass;
-
-        var jsonObj = {
-            "username": user,
-            "password": pass
-        }
-        res.set({
-            'Content-Type': 'application/json'
-        })
-        res.send(jsonObj);
     }
 });
 
