@@ -226,7 +226,7 @@ app.post('/movies/create', upload.single('image'), function(req, res, next) {
         return;
     }
     db.serialize(function() {
-        var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, movie_poster) values (?,?,?,?,?)");
+        var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, image) values (?,?,?,?,?)");
         statement.run(uniqueID, req.body.name, req.body.description, req.body.keywords, newFilePath);
         console.log(newFilePath);
         statement.finalize();
