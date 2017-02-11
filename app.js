@@ -97,7 +97,7 @@ app.get('/movies/json', function(req, res) {
             rows.forEach(function(element) {
                 element.keywords = element.keywords.split(',');
             }, this);
-	    res.send(JSON.parse(JSON.stringify(rows)));
+            res.send(JSON.parse(JSON.stringify(rows)));
         });
     })
 });
@@ -121,7 +121,7 @@ app.get('/movies/list/json', function(req, res) {
             rows.forEach(function(element) {
                 element.keywords = element.keywords.split(',');
             }, this);
-	    res.send(JSON.parse(JSON.stringify(rows)));
+            res.send(JSON.parse(JSON.stringify(rows)));
         });
     })
 });
@@ -129,15 +129,15 @@ app.get('/movies/list/json', function(req, res) {
 app.get('/movies/details/:id', function(req, res) {
     db.serialize(function() {
         db.get("SELECT * FROM movies where id = (?)", req.params.id, function(err, row) {
+            if (err) {                
+                return console.error(err);
+            }
             if (row) {
                 row.keywords = row.keywords.split(',');
                 row.title = 'Movies App';
                 row.layoutTitle = 'My Movies';
-		res.render('details', row);
+                res.render('details', row);
             }
-	    else {
-		res.sendStatus(404);	    
-	    }
         });
     });
 });
@@ -221,21 +221,21 @@ app.post('/movies/create', upload.single('image'), function(req, res, next) {
         invalidJsonResponse.invalidDescription ||
         invalidJsonResponse.invalidKeywords ||
         invalidJsonResponse.invalidImage
-    ) {
+        ) {
         res.render('create', invalidJsonResponse);
-        return;
-    }
-    db.serialize(function() {
-        var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, image) values (?,?,?,?,?)");
-        statement.run(uniqueID, req.body.name, req.body.description, req.body.keywords, newFilePath);
-        console.log(newFilePath);
-        statement.finalize();
-        redisClient.set("marcos:FileUploaded", newFilePath);
-        console.log("Current UUID = " + uniqueID);
-        uniqueID = uuid.v4();
-        console.log("New UUID = " + uniqueID);
-    });
-    res.redirect('/movies');
+    return;
+}
+db.serialize(function() {
+    var statement = db.prepare("INSERT INTO movies (id, name, description, keywords, image) values (?,?,?,?,?)");
+    statement.run(uniqueID, req.body.name, req.body.description, req.body.keywords, newFilePath);
+    console.log(newFilePath);
+    statement.finalize();
+    redisClient.set("marcos:FileUploaded", newFilePath);
+    console.log("Current UUID = " + uniqueID);
+    uniqueID = uuid.v4();
+    console.log("New UUID = " + uniqueID);
+});
+res.redirect('/movies');
 });
 
 app.post('/login', function(req, res) {
